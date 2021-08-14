@@ -1,0 +1,7 @@
+[package]
+name = "the-758"
+version = "0.1.0"
+authors = ["DegenApe#2082"]
+edition = "2018"
+
+[dependencies]
