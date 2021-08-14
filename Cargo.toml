@@ -5,3 +5,5 @@ authors = ["DegenApe#2082"]
 edition = "2018"
 
 [dependencies]
+gumdrop = { version = "0.8.0", features = ["default_expr"] }
+solana-client = "1.7.10"
