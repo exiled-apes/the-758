@@ -3246,6 +3246,8 @@ version = "0.1.0"
 dependencies = [
  "gumdrop",
  "solana-client",
+ "solana-sdk",
+ "solana-transaction-status",
 ]
 
 [[package]]
