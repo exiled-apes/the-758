@@ -38,10 +38,7 @@ fn main() {
         .get_signatures_for_address(&root_pubkey)
         .expect("Could not fetch root signatures");
 
-    // let mut count = 1u8;
     for root_status in root_statuses.iter() {
-        // count = count + 1;
-
         let tx_confirmation_status = root_status
             .to_owned()
             .confirmation_status
@@ -50,6 +47,8 @@ fn main() {
         if tx_confirmation_status != TransactionConfirmationStatus::Finalized {
             continue;
         }
+
+        let block_time = root_status.block_time.expect("Could not fetch block_time");
 
         match tx_confirmation_status {
             solana_transaction_status::TransactionConfirmationStatus::Finalized => {
@@ -64,20 +63,42 @@ fn main() {
 
                 let encoded_tx_with_status_meta = encoded_confirmed_tx.transaction;
 
-                let meta = encoded_tx_with_status_meta
-                    .meta
-                    .expect("Could not fetch meta");
+                let transaction = encoded_tx_with_status_meta
+                    .transaction
+                    .decode()
+                    .expect("Could not decode transaction");
 
-                if let Some(log_messages) = meta.clone().log_messages {
-                    if log_messages.len() == 66 {
-                        println!("{} {:?}", signature, meta);
+                // A note on current heuristics (subject to debugging & community validation).
+                // True exiles have:
+                // - 10 account_keys in their message.
+                // - 66 log messages in their meta.
+                // - 1 post token balance in their meta.
+
+                let message = transaction.message();
+                if message.account_keys.len() == 10usize {
+                    let owner = message.account_keys[0];
+
+                    let meta = encoded_tx_with_status_meta
+                        .meta
+                        .expect("Could not fetch meta");
+
+                    if let Some(log_messages) = meta.clone().log_messages {
+                        if let Some(post_token_balances) = meta.clone().post_token_balances {
+                            if log_messages.len() == 66 && post_token_balances.len() == 1 {
+                                for post_token_balance in post_token_balances.iter() {
+                                    println!(
+                                        "{} {} {}",
+                                        block_time, owner, post_token_balance.mint
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
             }
             _ => {}
         };
     }
-    println!("root_signatures {:?}", root_statuses.len());
 }
 
 fn default_root_account() -> String {
@@ -87,64 +108,3 @@ fn default_root_account() -> String {
 fn default_rpc_url() -> String {
     "https://api.mainnet-beta.solana.com".to_owned()
 }
-
-// fn _main() {
-//     let app_options = AppOptions::parse_args_default_or_exit();
-//     let rpc_url = app_options.rpc_url;
-//     let rpc_client = RpcClient::new(rpc_url);
-
-//     let root_tx_signature = app_options
-//         .root_tx_signature
-//         .parse()
-//         .expect("Could not parse root tx signature");
-
-//     let encoded_confirmed_root_tx = rpc_client
-//         .get_transaction(&root_tx_signature, UiTransactionEncoding::JsonParsed)
-//         .expect("Could not fetch root tx.");
-
-//     eprintln!(
-//         "ecnoded confirmed root tx: slot {}; block_time {:?}",
-//         encoded_confirmed_root_tx.slot, encoded_confirmed_root_tx.block_time,
-//     );
-
-//     match encoded_confirmed_root_tx.transaction.transaction {
-//         solana_transaction_status::EncodedTransaction::LegacyBinary(_) => todo!(),
-//         solana_transaction_status::EncodedTransaction::Binary(_, _) => todo!(),
-//         solana_transaction_status::EncodedTransaction::Json(ui_tx) => {
-//             // ui_tx.signatures
-//             match ui_tx.message {
-//                 solana_transaction_status::UiMessage::Raw(_) => todo!(),
-//                 solana_transaction_status::UiMessage::Parsed(ui_msg) => {
-//                     // ui_msg.account_keys
-//                     // ui_msg.instructions
-
-//                     for i in ui_msg.account_keys {
-//                         eprintln!("{:#?}", i);
-//                     }
-//                 }
-//             };
-//         }
-//     };
-
-//     // Ideas:
-//     // print transaction signature
-//     // print transaction result ("Success")
-//     // print transaction timestamp
-//     // print transaction confirmation status
-//     // print transaction block
-//     // print transaction recent blockhash
-//     // print transaction fee
-//     // print transaction log messages
-
-//     // Current TODO:
-//     // print each account
-//     // encoded_confirmed_root_tx.transaction.transaction.
-
-//     // let encoded_root_tx_with_status = encoded_confirmed_root_tx.transaction;
-//     // println!("root_tx {:#?}", encoded_root_tx_with_status);
-// }
-
-// fn default_root_tx_signature() -> String {
-//     "4zggZMvYNPj217dk3TbWkBjp523K8jzctRnfwyxbTTNqMNwMWfrUSRcNWEhEEqTo37TESCFKMg38z51RpKrUQxZe"
-//         .to_owned()
-// }
