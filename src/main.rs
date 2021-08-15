@@ -1,6 +1,6 @@
 use gumdrop::Options;
 use solana_client::rpc_client::RpcClient;
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 
 #[derive(Debug, Options)]
 struct AppOptions {
@@ -46,9 +46,10 @@ fn main() {
             .to_owned()
             .confirmation_status
             .expect("Could not retrive confirmation status");
-        println!("{:?}", tx_confirmation_status);
 
-        // TODO persist each transaction here so it can be analyzed instead of fetched all the time.
+        if tx_confirmation_status != TransactionConfirmationStatus::Finalized {
+            continue;
+        }
 
         match tx_confirmation_status {
             solana_transaction_status::TransactionConfirmationStatus::Finalized => {
@@ -56,32 +57,27 @@ fn main() {
                     .signature
                     .parse()
                     .expect("Could not parse signature");
-                println!("{:?}", signature);
 
                 let encoded_confirmed_tx = rpc_client
                     .get_transaction(&signature, UiTransactionEncoding::Base58)
                     .expect("Could not fetch transaction");
 
                 let encoded_tx_with_status_meta = encoded_confirmed_tx.transaction;
-                println!("{:?}", encoded_tx_with_status_meta);
 
-                let transaction = encoded_tx_with_status_meta
-                    .transaction
-                    .decode()
-                    .expect("Cound not decode encoded transaction");
-                println!("{:?}\n\n", transaction);
+                let meta = encoded_tx_with_status_meta
+                    .meta
+                    .expect("Could not fetch meta");
+
+                if let Some(log_messages) = meta.clone().log_messages {
+                    if log_messages.len() == 66 {
+                        println!("{} {:?}", signature, meta);
+                    }
+                }
             }
             _ => {}
         };
-
-        // if count > 50 {
-        //     break;
-        // }
-        // continue;
     }
     println!("root_signatures {:?}", root_statuses.len());
-
-    // rpc_client.get
 }
 
 fn default_root_account() -> String {
