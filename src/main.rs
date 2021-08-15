@@ -70,12 +70,11 @@ fn main() {
 
                 // A note on current heuristics (subject to debugging & community validation).
                 // True exiles have:
-                // - 10 account_keys in their message.
                 // - 66 log messages in their meta.
                 // - 1 post token balance in their meta.
 
                 let message = transaction.message();
-                if message.account_keys.len() == 10usize {
+                if message.account_keys.len() > 1 {
                     let owner = message.account_keys[0];
 
                     let meta = encoded_tx_with_status_meta
