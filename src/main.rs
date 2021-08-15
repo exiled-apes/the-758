@@ -1,5 +1,6 @@
 use gumdrop::Options;
 use solana_client::rpc_client::RpcClient;
+use solana_transaction_status::UiTransactionEncoding;
 
 #[derive(Debug, Options)]
 struct AppOptions {
@@ -39,8 +40,21 @@ fn main() {
 
     eprintln!("root_signatures {:?}", root_signatures.len());
     for root_signature in root_signatures {
-        eprintln!("root_signature {:?}", root_signature);
+        let signature = root_signature
+            .signature
+            .parse()
+            .expect("Could not parse signature");
+
+        let tx = rpc_client
+            .get_transaction(&signature, UiTransactionEncoding::JsonParsed)
+            .expect("Could not fetch signature");
+
+        // TODO persist each transaction here so it can be analyzed instead of fetched all the time.
+
+        eprintln!("{:?}", tx);
     }
+
+    // rpc_client.get
 }
 
 fn default_root_account() -> String {
