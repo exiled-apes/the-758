@@ -27,32 +27,59 @@ fn main() {
         .root_pubkey
         .parse()
         .expect("Could not parse root account");
-    eprintln!("root_pubkey {:?}", root_pubkey);
+    println!("root_pubkey {:?}", root_pubkey);
 
     let root_account = rpc_client
         .get_account(&root_pubkey)
         .expect("Could not fetch root account");
-    eprintln!("root_account {:?}", root_account);
+    println!("root_account {:?}", root_account);
 
-    let root_signatures = rpc_client
+    let root_statuses = rpc_client
         .get_signatures_for_address(&root_pubkey)
         .expect("Could not fetch root signatures");
 
-    eprintln!("root_signatures {:?}", root_signatures.len());
-    for root_signature in root_signatures {
-        let signature = root_signature
-            .signature
-            .parse()
-            .expect("Could not parse signature");
+    // let mut count = 1u8;
+    for root_status in root_statuses.iter() {
+        // count = count + 1;
 
-        let tx = rpc_client
-            .get_transaction(&signature, UiTransactionEncoding::JsonParsed)
-            .expect("Could not fetch signature");
+        let tx_confirmation_status = root_status
+            .to_owned()
+            .confirmation_status
+            .expect("Could not retrive confirmation status");
+        println!("{:?}", tx_confirmation_status);
 
         // TODO persist each transaction here so it can be analyzed instead of fetched all the time.
 
-        eprintln!("{:?}", tx);
+        match tx_confirmation_status {
+            solana_transaction_status::TransactionConfirmationStatus::Finalized => {
+                let signature = root_status
+                    .signature
+                    .parse()
+                    .expect("Could not parse signature");
+                println!("{:?}", signature);
+
+                let encoded_confirmed_tx = rpc_client
+                    .get_transaction(&signature, UiTransactionEncoding::Base58)
+                    .expect("Could not fetch transaction");
+
+                let encoded_tx_with_status_meta = encoded_confirmed_tx.transaction;
+                println!("{:?}", encoded_tx_with_status_meta);
+
+                let transaction = encoded_tx_with_status_meta
+                    .transaction
+                    .decode()
+                    .expect("Cound not decode encoded transaction");
+                println!("{:?}\n\n", transaction);
+            }
+            _ => {}
+        };
+
+        // if count > 50 {
+        //     break;
+        // }
+        // continue;
     }
+    println!("root_signatures {:?}", root_statuses.len());
 
     // rpc_client.get
 }
