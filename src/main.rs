@@ -2,28 +2,72 @@ use gumdrop::Options;
 use solana_client::rpc_client::RpcClient;
 use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 
-#[derive(Debug, Options)]
+#[derive(Clone, Debug, Options)]
 struct AppOptions {
+    #[options(help = "Solana rpc server url", default_expr = "default_rpc_url()")]
+    rpc_url: String,
+
+    #[options(command)]
+    command: Option<Command>,
+}
+
+#[derive(Clone, Debug, Options)]
+struct ListMetadataOptions {
+    #[options(free)]
+    args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Options)]
+struct ListExilesOptions {
     #[options(
         help = "Root account (where the 6◎ was sent)",
         default_expr = "default_root_account()"
     )]
     root_pubkey: String,
+}
 
-    #[options(help = "Solana rpc server url", default_expr = "default_rpc_url()")]
-    rpc_url: String,
-    // TODO deleteme?
-    // #[options(help = "Root tx", default_expr = "default_root_tx_signature()")]
-    // root_tx_signature: String,
+#[derive(Clone, Debug, Options)]
+enum Command {
+    ListMetadata(ListMetadataOptions),
+    ListExiles(ListExilesOptions),
 }
 
 fn main() {
     eprintln!("Hello, apes!");
 
     let app_options = AppOptions::parse_args_default_or_exit();
+    match app_options.clone().command {
+        Some(command) => {
+            match command {
+                Command::ListMetadata(list_metadata_options) => {
+                    list_metadata(app_options, list_metadata_options)
+                }
+                Command::ListExiles(list_exiles_options) => {
+                    list_exiles(app_options, list_exiles_options)
+                }
+            };
+        }
+        None => todo!("implement a help command that prints usage, etc... (also eliminate the need for multiple matches :)"),
+    }
+}
+
+fn list_metadata(app_options: AppOptions, list_metadata_options: ListMetadataOptions) {
+    let _ = app_options;
+
+    for arg in list_metadata_options.args {
+        // todo assume each arg is an transaction signature
+        // traverse into the last transaction -- CreateMasterEdition,
+        //  locate the metadata account #6
+        //  fetch the account
+        //  then: let metadata = Metadata::from_account_info(metadata_account_info)?;
+        let _ = arg;
+    }
+}
+
+fn list_exiles(app_options: AppOptions, list_exiles_options: ListExilesOptions) {
     let rpc_client = RpcClient::new(app_options.rpc_url);
 
-    let root_pubkey = app_options
+    let root_pubkey = list_exiles_options
         .root_pubkey
         .parse()
         .expect("Could not parse root account");

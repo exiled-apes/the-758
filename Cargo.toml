@@ -9,3 +9,4 @@ gumdrop = { version = "0.8.0", features = ["default_expr"] }
 solana-client = "1.7.10"
 solana-sdk = "1.7.10"
 solana-transaction-status = "1.7.10"
+spl-token-metadata = "0.0.1"
