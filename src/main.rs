@@ -71,12 +71,12 @@ fn list_exiles(app_options: AppOptions, list_exiles_options: ListExilesOptions) 
         .root_pubkey
         .parse()
         .expect("Could not parse root account");
-    println!("root_pubkey {:?}", root_pubkey);
+    eprintln!("root_pubkey {:?}", root_pubkey);
 
     let root_account = rpc_client
         .get_account(&root_pubkey)
         .expect("Could not fetch root account");
-    println!("root_account {:?}", root_account);
+    eprintln!("root_account {:?}", root_account);
 
     let root_statuses = rpc_client
         .get_signatures_for_address(&root_pubkey)
@@ -119,7 +119,7 @@ fn list_exiles(app_options: AppOptions, list_exiles_options: ListExilesOptions) 
 
                 let message = transaction.message();
                 if message.account_keys.len() > 1 {
-                    let owner = message.account_keys[0];
+                    // let owner = message.account_keys[0];
 
                     let meta = encoded_tx_with_status_meta
                         .meta
@@ -129,10 +129,7 @@ fn list_exiles(app_options: AppOptions, list_exiles_options: ListExilesOptions) 
                         if let Some(post_token_balances) = meta.clone().post_token_balances {
                             if log_messages.len() == 66 && post_token_balances.len() == 1 {
                                 for post_token_balance in post_token_balances.iter() {
-                                    println!(
-                                        "{} {} {}",
-                                        block_time, owner, post_token_balance.mint
-                                    );
+                                    println!("{} {}", block_time, post_token_balance.mint);
                                 }
                             }
                         }
