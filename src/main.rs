@@ -1,6 +1,10 @@
 use gumdrop::Options;
+use linereader::LineReader;
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::{account::ReadableAccount, program_pack::Pack};
 use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
+use spl_token::state::Mint;
+use spl_token_metadata::state::Metadata;
 
 #[derive(Clone, Debug, Options)]
 struct AppOptions {
@@ -51,16 +55,51 @@ fn main() {
     }
 }
 
-fn list_metadata(app_options: AppOptions, list_metadata_options: ListMetadataOptions) {
-    let _ = app_options;
+fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOptions) {
+    let rpc_client = RpcClient::new(app_options.rpc_url);
 
-    for arg in list_metadata_options.args {
-        // todo assume each arg is an transaction signature
-        // traverse into the last transaction -- CreateMasterEdition,
-        //  locate the metadata account #6
-        //  fetch the account
-        //  then: let metadata = Metadata::from_account_info(metadata_account_info)?;
-        let _ = arg;
+    let mut r = LineReader::new(std::io::stdin());
+    while let Some(Ok(line)) = r.next_line() {
+        let line = std::str::from_utf8(line).expect("Couldn't decode line!");
+        let line: Vec<&str> = line.trim().split(' ').collect();
+
+        let mint_address = line.get(1).expect("Couldn't extract ape token address");
+
+        let mint_pubkey = mint_address
+            .parse()
+            .expect("Could not parse ape token pubkey");
+
+        let mint_account = rpc_client
+            .get_account(&mint_pubkey)
+            .expect("Could not fetch ape account");
+
+        let mint =
+            Mint::unpack_unchecked(&mint_account.data()).expect("Couldn't unpack mint state");
+
+        let mint_authority = mint.mint_authority.expect("Missing mint authority");
+
+        let mint_authority_txs = rpc_client
+            .get_signatures_for_address(&mint_authority)
+            .expect("could not fetch signatures for mint authority");
+
+        // we expect the mint_authority to have participated in exactly 1 txn
+        assert_eq!(mint_authority_txs.len(), 1);
+
+        let genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
+
+        let signature = genesis_tx
+            .signature
+            .parse()
+            .expect("Could not parse signature");
+
+        let encoded_genesis_tx = rpc_client
+            .get_transaction(&signature, UiTransactionEncoding::Base58)
+            .expect("Could not fetch transaction");
+        eprintln!("{:?}", encoded_genesis_tx);
+
+        // TODO locate the last instruction (Create Master Edition) on the encoded geneisis tx.
+        // TODO then locate the 6th account -- identifies where the metadata actually sits
+        // TODO get that account & parse with MetadataV2::try_from_slice_checked (iirc)
     }
 }
 
