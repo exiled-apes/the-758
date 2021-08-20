@@ -83,9 +83,12 @@ async fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMeta
             .expect("could not fetch signatures for mint authority");
 
         // we expect the mint_authority to have participated in exactly 1 txn
-        assert_eq!(mint_authority_txs.len(), 1);
+        // assert_eq!(mint_authority_txs.len(), 1);
+        // let ape_genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
 
-        let ape_genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
+        let ape_genesis_tx = mint_authority_txs
+            .last()
+            .expect("Could not get genesis tx");
 
         let ape_genesis_sig = ape_genesis_tx
             .signature
