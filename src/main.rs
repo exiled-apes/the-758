@@ -137,13 +137,19 @@ async fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMeta
         if url.len() == 0 {
             println!("{} {:?}: {} {}", "{", mint_address, "null", "}");
         } else {
-            let metadata = reqwest::get(url)
-                .await
-                .expect("Could not fetch metadata")
-                .text()
-                .await
-                .expect("Could not parse metadata response body");
-            println!("{} {:?}: {} {}", "{", mint_address, metadata, "}");
+            let res = reqwest::get(url).await;
+            if res.is_err() {
+                println!("{} {:?}: {} {}", "{", mint_address, "null", "}");
+            } else {
+                let res = res.expect("Could not get response");
+                let txt = res.text().await;
+                if txt.is_err() {
+                    println!("{} {:?}: {} {}", "{", mint_address, "null", "}");
+                } else {
+                    let txt = txt.expect("Could not parse metadata response body");
+                    println!("{} {:?}: {} {}", "{", mint_address, txt, "}");
+                }
+            }
         }
     }
 }
