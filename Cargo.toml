@@ -5,10 +5,13 @@ authors = ["DegenApe#2082"]
 edition = "2018"
 
 [dependencies]
+futures = "0.3"
 gumdrop = { version = "0.8.0", features = ["default_expr"] }
 linereader = "0.4.0"
+reqwest = "0.11.4"
 solana-client = "1.7.10"
 solana-sdk = "1.7.10"
 solana-transaction-status = "1.7.10"
 spl-token = { version = "3.1.1", features = ["no-entrypoint"] }
 spl-token-metadata = { version = "0.0.1", features = ["no-entrypoint"] }
+tokio = { version = "1.10.0", features = ["full"] }

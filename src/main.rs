@@ -1,10 +1,11 @@
+use futures::executor::block_on;
 use gumdrop::Options;
 use linereader::LineReader;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{account::ReadableAccount, program_pack::Pack};
+use solana_sdk::{account::ReadableAccount, message::Message, program_pack::Pack};
 use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 use spl_token::state::Mint;
-use spl_token_metadata::state::Metadata;
+use spl_token_metadata::{state::Metadata, utils::try_from_slice_checked};
 
 #[derive(Clone, Debug, Options)]
 struct AppOptions {
@@ -36,7 +37,8 @@ enum Command {
     ListExiles(ListExilesOptions),
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     eprintln!("Hello, apes!");
 
     let app_options = AppOptions::parse_args_default_or_exit();
@@ -44,7 +46,7 @@ fn main() {
         Some(command) => {
             match command {
                 Command::ListMetadata(list_metadata_options) => {
-                    list_metadata(app_options, list_metadata_options)
+                    block_on(list_metadata(app_options, list_metadata_options))
                 }
                 Command::ListExiles(list_exiles_options) => {
                     list_exiles(app_options, list_exiles_options)
@@ -55,7 +57,7 @@ fn main() {
     }
 }
 
-fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOptions) {
+async fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOptions) {
     let rpc_client = RpcClient::new(app_options.rpc_url);
 
     let mut r = LineReader::new(std::io::stdin());
@@ -63,15 +65,13 @@ fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOp
         let line = std::str::from_utf8(line).expect("Couldn't decode line!");
         let line: Vec<&str> = line.trim().split(' ').collect();
 
-        let mint_address = line.get(1).expect("Couldn't extract ape token address");
+        let mint_address = line.get(1).expect("Couldn't extract mint address");
 
-        let mint_pubkey = mint_address
-            .parse()
-            .expect("Could not parse ape token pubkey");
+        let mint_pubkey = mint_address.parse().expect("Could not parse mint pubkey");
 
         let mint_account = rpc_client
             .get_account(&mint_pubkey)
-            .expect("Could not fetch ape account");
+            .expect("Could not fetch mint account");
 
         let mint =
             Mint::unpack_unchecked(&mint_account.data()).expect("Couldn't unpack mint state");
@@ -85,21 +85,66 @@ fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOp
         // we expect the mint_authority to have participated in exactly 1 txn
         assert_eq!(mint_authority_txs.len(), 1);
 
-        let genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
+        let ape_genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
 
-        let signature = genesis_tx
+        let ape_genesis_sig = ape_genesis_tx
             .signature
             .parse()
             .expect("Could not parse signature");
 
-        let encoded_genesis_tx = rpc_client
-            .get_transaction(&signature, UiTransactionEncoding::Base58)
+        let ape_genesis_tx = rpc_client
+            .get_transaction(&ape_genesis_sig, UiTransactionEncoding::Base58)
             .expect("Could not fetch transaction");
-        eprintln!("{:?}", encoded_genesis_tx);
 
-        // TODO locate the last instruction (Create Master Edition) on the encoded geneisis tx.
-        // TODO then locate the 6th account -- identifies where the metadata actually sits
-        // TODO get that account & parse with MetadataV2::try_from_slice_checked (iirc)
+        let ape_genesis_tx = ape_genesis_tx.transaction;
+
+        let ape_genesis_tx = ape_genesis_tx
+            .transaction
+            .decode()
+            .expect("Could not decode transaction");
+
+        let ape_genesis_msg: &Message = ape_genesis_tx.message();
+
+        let creat_master_ed_ix = ape_genesis_msg
+            .instructions
+            .get(6)
+            .expect("Could not get create master edition instruction");
+
+        let metadata_account_idx = *creat_master_ed_ix
+            .accounts
+            .get(5)
+            .expect("Could not get metadata account index");
+
+        let metadata_pubkey = ape_genesis_msg
+            .account_keys
+            .get(metadata_account_idx as usize)
+            .expect("Could not get metadata account");
+
+        let metadata_account = rpc_client
+            .get_account(metadata_pubkey)
+            .expect("Could not fetch metadata account");
+
+        // let metadata = Metadata::try_from_slice_checked(&metadata_account.data())
+        //     .expect("Could not deserialzie metadata");
+        let md: Metadata = try_from_slice_checked(
+            metadata_account.data(),
+            spl_token_metadata::state::Key::MetadataV1,
+            spl_token_metadata::state::MAX_METADATA_LEN,
+        )
+        .expect("Could not deserialze metadata");
+
+        let url = format!("{}", md.data.uri);
+        if url.len() == 0 {
+            println!("{}", "{}");
+        } else {
+            let metadata = reqwest::get(url)
+                .await
+                .expect("Could not fetch metadata")
+                .text()
+                .await
+                .expect("Could not parse metadata response body");
+            println!("{}", metadata);
+        }
     }
 }
 
