@@ -17,6 +17,12 @@ struct AppOptions {
 }
 
 #[derive(Clone, Debug, Options)]
+struct ListHoldersOptions {
+    #[options(free)]
+    args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Options)]
 struct ListMetadataOptions {
     #[options(free)]
     args: Vec<String>,
@@ -33,6 +39,7 @@ struct ListExilesOptions {
 
 #[derive(Clone, Debug, Options)]
 enum Command {
+    ListHolders(ListHoldersOptions),
     ListMetadata(ListMetadataOptions),
     ListExiles(ListExilesOptions),
 }
@@ -45,6 +52,9 @@ async fn main() {
     match app_options.clone().command {
         Some(command) => {
             match command {
+                Command::ListHolders(list_holders_options) => {
+                    block_on(list_holders(app_options, list_holders_options))
+                }
                 Command::ListMetadata(list_metadata_options) => {
                     block_on(list_metadata(app_options, list_metadata_options))
                 }
@@ -57,7 +67,22 @@ async fn main() {
     }
 }
 
-async fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMetadataOptions) {
+async fn list_holders(app_options: AppOptions, _: ListHoldersOptions) {
+    let rpc_client = RpcClient::new(app_options.rpc_url);
+    let _ = rpc_client; // deleteme
+
+    let mut r = LineReader::new(std::io::stdin());
+    while let Some(Ok(line)) = r.next_line() {
+        let line = std::str::from_utf8(line).expect("Couldn't decode line!");
+        let line: Vec<&str> = line.trim().split(' ').collect();
+
+        let mint_address = line.get(1).expect("Couldn't extract mint address");
+
+        println!("mint_address {}", mint_address);
+    }
+}
+
+async fn list_metadata(app_options: AppOptions, _: ListMetadataOptions) {
     let rpc_client = RpcClient::new(app_options.rpc_url);
 
     let mut r = LineReader::new(std::io::stdin());
@@ -86,9 +111,7 @@ async fn list_metadata(app_options: AppOptions, _list_metadata_options: ListMeta
         // assert_eq!(mint_authority_txs.len(), 1);
         // let ape_genesis_tx = mint_authority_txs.get(0).expect("Could not get genesis tx");
 
-        let ape_genesis_tx = mint_authority_txs
-            .last()
-            .expect("Could not get genesis tx");
+        let ape_genesis_tx = mint_authority_txs.last().expect("Could not get genesis tx");
 
         let ape_genesis_sig = ape_genesis_tx
             .signature
